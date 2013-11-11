@@ -175,17 +175,21 @@ class Environment(dict):
             /usr/local/share/arduino/a/b/c
             /usr/share/arduino/a/b/c
         """
+
+        if len(dirname_parts) > 0 and not isinstance(dirname_parts[0], (list, tuple)):
+            dirname_parts = [dirname_parts]
+
         if 'arduino_dist_dir' in self:
             places = [self['arduino_dist_dir']]
         else:
             places = self.arduino_dist_dir_guesses
-        return [os.path.join(p, *dirname_parts) for p in places]
+        return [os.path.join(p, *dirname_parts_option) for p in places for dirname_parts_option in dirname_parts]
 
     def board_models(self):
         if 'board_models' in self:
             return self['board_models']
 
-        boards_txt = self.find_arduino_file('boards.txt', ['hardware', 'arduino'], 
+        boards_txt = self.find_arduino_file('boards.txt', [['hardware', 'arduino'], ['hardware', 'arduino', 'avr']], 
                                             human_name='Board description file (boards.txt)')
 
         self['board_models'] = BoardModels()
@@ -202,8 +206,23 @@ class Environment(dict):
                 for key in multikey[:-1]:
                     if key not in subdict:
                         subdict[key] = {}
+                    elif not isinstance(subdict[key], dict):
+                        #TODO This avoids an error while parsing the file, but the program doesn't know
+                        #     how to handle this.
+                        if len(multikey) > 2 and multikey[1] == "menu":
+                            # we don't use those
+                            pass
+                        else:
+                            print(("WARN: The key %s is a subkey of another key that has a value. This is not "
+                                + "supported by inotool. This occurred while reading %s. Replacing value of %s, "
+                                + "which was %r.")
+                                % (".".join(multikey), boards_txt, key, subdict[key]))
+                        subdict[key] = { "-value-": subdict[key] }
                     subdict = subdict[key]
 
+                if multikey[-1] in subdict:
+                    print("WARN: Overwriting value of key %s while reading %s. old: %r, new: %r" %
+                        (".".join(multikey), boards_txt, subdict[multikey[-1]], val))
                 subdict[multikey[-1]] = val
 
         return self['board_models']
