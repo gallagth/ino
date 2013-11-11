@@ -83,7 +83,8 @@ class Upload(Command):
         # this wait a moment for the bootloader to enumerate. On Windows, also must
         # deal with the fact that the COM port number changes from bootloader to
         # sketch.
-        if board['bootloader']['path'] == "caterina":
+        if 'path' in board['bootloader'] and board['bootloader']['path'] == "caterina" or \
+                'use_1200bps_touch' in board['upload'] and board['upload']['use_1200bps_touch'] == "true":
             caterina_port = None
             before = self.e.list_serial_ports()
             if port in before:
