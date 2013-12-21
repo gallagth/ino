@@ -29,8 +29,12 @@ class Upload(Command):
 
     def setup_arg_parser(self, parser):
         super(Upload, self).setup_arg_parser(parser)
+
         parser.add_argument('-p', '--serial-port', metavar='PORT',
                             help='Serial port to upload firmware to\nTry to guess if not specified')
+
+        parser.add_argument('-v', '--verbose', default=False, action='store_true',
+                            help='Verbose make output')
 
         self.e.add_board_model_arg(parser)
         self.e.add_arduino_dist_arg(parser)
@@ -47,7 +51,16 @@ class Upload(Command):
             self.e.find_arduino_tool('avrdude', ['hardware', 'tools', 'avr', 'bin'])
             self.e.find_arduino_file('avrdude.conf', ['hardware', 'tools', 'avr', 'etc'])
     
+    @staticmethod
+    def _subprocess_call(cmd, verbose=False):
+        if verbose:
+            print " ".join(cmd)
+
+        return subprocess.call(cmd)
+
     def run(self, args):
+        verbose = args.verbose
+
         self.discover()
         port = args.serial_port or self.e.guess_serial_port()
         board = self.e.board_model(args.board_model)
@@ -63,7 +76,7 @@ class Upload(Command):
 
         # send a hangup signal when the last process closes the tty
         file_switch = '-f' if platform.system() == 'Darwin' else '-F'
-        ret = subprocess.call([self.e['stty'], file_switch, port, 'hupcl'])
+        ret = self._subprocess_call([self.e['stty'], file_switch, port, 'hupcl'], verbose=verbose)
         if ret:
             raise Abort("stty failed")
 
@@ -122,8 +135,13 @@ class Upload(Command):
 
             port = caterina_port
 
+        if verbose:
+            avrdude_verbose = ["-v", "-v", "-v", "-v"]
+        else:
+            avrdude_verbose = []
+
         # call avrdude to upload .hex
-        subprocess.call([
+        self._subprocess_call([
             self.e['avrdude'],
             '-C', self.e['avrdude.conf'],
             '-p', board['build']['mcu'],
@@ -132,4 +150,4 @@ class Upload(Command):
             '-b', board['upload']['speed'],
             '-D',
             '-U', 'flash:w:%s:i' % self.e['hex_path'],
-        ])
+        ] + avrdude_verbose, verbose=verbose)
