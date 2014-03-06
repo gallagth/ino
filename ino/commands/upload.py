@@ -135,6 +135,20 @@ class Upload(Command):
 
             port = caterina_port
 
+            # udev might need some time to change the owner and/or chmod
+            accessible = False
+            elapsed = 0
+            while elapsed < 2:
+                accessible = os.access(port, os.R_OK|os.W_OK)
+                if accessible:
+                    break
+
+                sleep(enum_delay)
+                elapsed += enum_delay
+
+            if not accessible:
+                print("WARNING: The device file '%s' is probably not accessible, but I will try anyway.")
+
         if verbose:
             avrdude_verbose = ["-v", "-v", "-v", "-v"]
         else:
